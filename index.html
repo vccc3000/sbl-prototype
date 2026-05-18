@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SBL平台完整高保真原型</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --panel2: #f8fafc;
+      --text: #111827;
+      --muted: #64748b;
+      --line: #e5e7eb;
+      --line2: #eef2f7;
+      --primary: #2563eb;
+      --primary2: #1d4ed8;
+      --primarySoft: #eff6ff;
+      --success: #16a34a;
+      --successSoft: #ecfdf5;
+      --warning: #f59e0b;
+      --warningSoft: #fffbeb;
+      --danger: #dc2626;
+      --dangerSoft: #fef2f2;
+      --purple: #7c3aed;
+      --purpleSoft: #f5f3ff;
+      --side: #0f172a;
+      --side2: #111827;
+      --shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+        "Microsoft YaHei", Arial, sans-serif;
+      font-size: 14px;
+    }
+
+    button, input, select, textarea { font-family: inherit; }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 260px 1fr;
+    }
+
+    .sidebar {
+      height: 100vh;
+      position: sticky;
+      top: 0;
+      background: linear-gradient(180deg, var(--side), var(--side2));
+      color: #cbd5e1;
+      padding: 20px 16px;
+      overflow-y: auto;
+    }
+
+    .brand {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 0 6px 18px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      margin-bottom: 16px;
+    }
+
+    .logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-weight: 900;
+      background: linear-gradient(135deg, #2563eb, #38bdf8);
+      box-shadow: 0 12px 26px rgba(37, 99, 235, .32);
+    }
+
+    .brand-title {
+      color: #fff;
+      font-size: 17px;
+      font-weight: 900;
+      line-height: 1.2;
+    }
+
+    .brand-sub {
+      color: #94a3b8;
+      font-size: 12px;
+      margin-top: 3px;
+    }
+
+    .role-switch {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+
+    .role-btn {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.04);
+      color: #cbd5e1;
+      border-radius: 14px;
+      padding: 11px 12px;
+      cursor: pointer;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: .2s;
+    }
+
+    .role-btn.active,
+    .role-btn:hover {
+      color: #fff;
+      background: rgba(37,99,235,.22);
+      border-color: rgba(96,165,250,.4);
+    }
+
+    .nav-title {
+      color: #64748b;
+      font-size: 12px;
+      padding: 12px 8px 8px;
+      letter-spacing: .5px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      margin-bottom: 4px;
+      user-select: none;
+      transition: .2s;
+    }
+
+    .nav-item:hover {
+      background: rgba(255,255,255,.06);
+      color: #fff;
+    }
+
+    .nav-item.active {
+      background: #1e293b;
+      color: #fff;
+      box-shadow: inset 3px 0 0 #38bdf8;
+    }
+
+    .main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      height: 76px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(255,255,255,.88);
+      backdrop-filter: blur(18px);
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      gap: 16px;
+    }
+
+    .page-title {
+      font-size: 23px;
+      font-weight: 900;
+      margin-bottom: 3px;
+    }
+
+    .page-desc {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .global-search {
+      position: relative;
+    }
+
+    .global-search span {
+      position: absolute;
+      left: 13px;
+      top: 9px;
+      color: #94a3b8;
+    }
+
+    .global-search input {
+      width: 280px;
+      height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      padding: 0 14px 0 36px;
+      outline: none;
+    }
+
+    .avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      color: #fff;
+      font-weight: 900;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, #2563eb, #06b6d4);
+    }
+
+    .content {
+      padding: 24px 28px 42px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 18px;
+    }
+
+    .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: 0 12px 28px rgba(15,23,42,.04);
+      overflow: hidden;
+    }
+
+    .card-head {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 900;
+    }
+
+    .card-sub {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 3px;
+    }
+
+    .card-body { padding: 20px; }
+
+    .metric {
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+      min-height: 132px;
+    }
+
+    .metric:after {
+      content: "";
+      position: absolute;
+      right: -28px;
+      top: -28px;
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      background: var(--primarySoft);
+    }
+
+    .metric-label {
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .metric-value {
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: -.5px;
+    }
+
+    .metric-note {
+      margin-top: 10px;
+      display: inline-flex;
+      gap: 4px;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      background: var(--primarySoft);
+      color: var(--primary);
+    }
+
+    .note-green { background: var(--successSoft); color: var(--success); }
+    .note-orange { background: var(--warningSoft); color: #b45309; }
+    .note-red { background: var(--dangerSoft); color: var(--danger); }
+    .note-purple { background: var(--purpleSoft); color: var(--purple); }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .filters {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .field, .select {
+      height: 38px;
+      min-width: 150px;
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 11px;
+      padding: 0 12px;
+      outline: none;
+    }
+
+    .field:focus, .select:focus, textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(37,99,235,.1);
+    }
+
+    .btn {
+      height: 38px;
+      border-radius: 11px;
+      padding: 0 14px;
+      border: 1px solid transparent;
+      background: #fff;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 800;
+      transition: .18s;
+      white-space: nowrap;
+    }
+
+    .btn:hover { transform: translateY(-1px); }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+      box-shadow: 0 10px 18px rgba(37,99,235,.18);
+    }
+
+    .btn-outline {
+      background: #fff;
+      border-color: var(--line);
+      color: #334155;
+    }
+
+    .btn-soft {
+      background: var(--primarySoft);
+      color: var(--primary);
+    }
+
+    .btn-danger {
+      background: var(--dangerSoft);
+      color: var(--danger);
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .tag-blue { background: var(--primarySoft); color: var(--primary); }
+    .tag-green { background: var(--successSoft); color: var(--success); }
+    .tag-orange { background: var(--warningSoft); color: #b45309; }
+    .tag-red { background: var(--dangerSoft); color: var(--danger); }
+    .tag-purple { background: var(--purpleSoft); color: var(--purple); }
+    .tag-gray { background: #f1f5f9; color: #475569; }
+
+    .table-wrap { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 980px;
+    }
+
+    th {
+      text-align: left;
+      background: #f8fafc;
+      color: #475569;
+      font-size: 12px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      white-space: nowrap;
+      font-weight: 900;
+    }
+
+    td {
+      padding: 14px;
+      border-bottom: 1px solid var(--line2);
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+
+    tr:hover td { background: #fbfdff; }
+
+    .stock {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .stock-logo {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      background: var(--primarySoft);
+      color: var(--primary);
+      font-weight: 900;
+    }
+
+    .stock-name { font-weight: 900; }
+    .stock-code { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+    .progress {
+      width: 116px;
+      height: 8px;
+      background: #e5e7eb;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress i {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, #2563eb, #38bdf8);
+      border-radius: inherit;
+    }
+
+    .upload-box {
+      border: 1.5px dashed #93c5fd;
+      background: linear-gradient(180deg, #eff6ff, #ffffff);
+      border-radius: 18px;
+      padding: 32px;
+      text-align: center;
+    }
+
+    .upload-icon {
+      width: 58px;
+      height: 58px;
+      border-radius: 18px;
+      background: var(--primary);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 26px;
+      margin: 0 auto 14px;
+      box-shadow: 0 12px 24px rgba(37,99,235,.24);
+    }
+
+    .upload-title {
+      font-size: 18px;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+
+    .upload-desc {
+      color: var(--muted);
+      margin-bottom: 18px;
+    }
+
+    .steps {
+      display: grid;
+      gap: 12px;
+    }
+
+    .step {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 14px;
+      border-radius: 14px;
+      background: #f8fafc;
+      border: 1px solid var(--line);
+    }
+
+    .step-num {
+      width: 30px;
+      height: 30px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      background: var(--primary);
+      color: #fff;
+      font-weight: 900;
+      flex: 0 0 auto;
+    }
+
+    .step-title { font-weight: 900; margin-bottom: 3px; }
+    .step-desc { color: var(--muted); font-size: 12px; }
+
+    .mini-form {
+      display: grid;
+      gap: 14px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .form-row label {
+      color: #475569;
+      font-weight: 800;
+    }
+
+    .form-row input,
+    .form-row select,
+    .form-row textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      padding: 10px 12px;
+      outline: none;
+      background: #fff;
+    }
+
+    .timeline {
+      display: grid;
+      gap: 12px;
+    }
+
+    .timeline-item {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .timeline-dot {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      background: var(--primarySoft);
+      color: var(--primary);
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      flex: 0 0 auto;
+    }
+
+    .tl-title { font-weight: 900; margin-bottom: 3px; }
+    .tl-desc { color: var(--muted); font-size: 12px; }
+
+    .kanban {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(250px, 1fr));
+      gap: 16px;
+      overflow-x: auto;
+    }
+
+    .kanban-col {
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+      min-height: 430px;
+    }
+
+    .kanban-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: 900;
+      margin-bottom: 12px;
+    }
+
+    .deal-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 12px;
+      box-shadow: 0 8px 18px rgba(15,23,42,.04);
+    }
+
+    .deal-id {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .deal-name {
+      font-weight: 900;
+      font-size: 15px;
+    }
+
+    .deal-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .deal-meta strong {
+      display: block;
+      color: var(--text);
+      font-size: 14px;
+      margin-top: 2px;
+    }
+
+    .rule-card {
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      padding: 16px;
+      background: #fff;
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    .switch {
+      width: 46px;
+      height: 26px;
+      border-radius: 999px;
+      background: var(--primary);
+      position: relative;
+      flex: 0 0 auto;
+    }
+
+    .switch:after {
+      content: "";
+      position: absolute;
+      right: 3px;
+      top: 3px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #fff;
+    }
+
+    .audit {
+      display: grid;
+      gap: 12px;
+    }
+
+    .audit-row {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+      display: grid;
+      grid-template-columns: 130px 1fr 160px;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .modal-mask {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      background: rgba(15,23,42,.48);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-mask.show { display: flex; }
+
+    .modal {
+      width: 760px;
+      max-width: 100%;
+      background: #fff;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      animation: pop .18s ease;
+    }
+
+    @keyframes pop {
+      from { opacity: 0; transform: scale(.98); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .modal-head,
+    .modal-foot {
+      padding: 18px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .modal-head { border-bottom: 1px solid var(--line); }
+    .modal-foot { background: #f8fafc; justify-content: flex-end; }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .modal-body { padding: 22px; }
+
+    .toast {
+      position: fixed;
+      top: 92px;
+      right: 28px;
+      z-index: 100;
+      background: #111827;
+      color: #fff;
+      padding: 13px 16px;
+      border-radius: 12px;
+      display: none;
+      box-shadow: var(--shadow);
+    }
+
+    .toast.show { display: block; }
+
+    @media (max-width: 1180px) {
+      .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid-3, .grid-2 { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 860px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { height: auto; position: relative; }
+      .topbar {
+        height: auto;
+        padding: 18px;
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .top-actions { width: 100%; justify-content: space-between; }
+      .global-search input { width: 100%; }
+      .content { padding: 18px; }
+      .grid-4 { grid-template-columns: 1fr; }
+      .form-row { grid-template-columns: 1fr; }
+      .audit-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">S</div>
+        <div>
+          <div class="brand-title">SBL Platform</div>
+          <div class="brand-sub">完整高保真页面原型</div>
+        </div>
+      </div>
+
+      <div class="role-switch">
+        <button class="role-btn active" data-role="broker">券商端 <span>Broker</span></button>
+        <button class="role-btn" data-role="trader">交易员端 <span>Trader</span></button>
+        <button class="role-btn" data-role="admin">管理后台 <span>Admin</span></button>
+      </div>
+
+      <div class="nav-title" id="navTitle">券商端菜单</div>
+      <div id="nav"></div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="page-title" id="pageTitle">持仓上传</div>
+          <div class="page-desc" id="pageDesc">上传客户持仓文件，系统校验后进入可借计算流程</div>
+        </div>
+        <div class="top-actions">
+          <div class="global-search">
+            <span>⌕</span>
+            <input placeholder="搜索股票 / 机构 / 交易编号 / 操作人" />
+          </div>
+          <button class="btn btn-primary" onclick="openModal()">+ 快捷操作</button>
+          <div class="avatar" id="avatar">BR</div>
+        </div>
+      </header>
+
+      <div class="content" id="content"></div>
+    </main>
+  </div>
+
+  <div class="modal-mask" id="modalMask">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <div class="modal-title" id="modalTitle">快捷操作</div>
+          <div class="card-sub">该弹窗用于模拟创建、发布、审批、锁券等业务操作</div>
+        </div>
+        <button class="btn btn-outline" onclick="closeModal()">关闭</button>
+      </div>
+      <div class="modal-body">
+        <div class="mini-form">
+          <div class="form-row">
+            <label>业务类型</label>
+            <select>
+              <option>创建撮合单</option>
+              <option>发布券源</option>
+              <option>上传持仓</option>
+              <option>新增风控规则</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>股票代码</label>
+            <input value="00700.HK" />
+          </div>
+          <div class="form-row">
+            <label>数量</label>
+            <input value="100000" />
+          </div>
+          <div class="form-row">
+            <label>备注</label>
+            <textarea rows="3">高保真原型模拟操作，无真实提交。</textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-outline" onclick="closeModal()">取消</button>
+        <button class="btn btn-primary" onclick="toast('操作已提交，状态已更新'); closeModal()">确认提交</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const roleMenus = {
+      broker: {
+        title: "券商端菜单",
+        avatar: "BR",
+        menus: [
+          ["upload", "📤", "持仓上传", "上传客户持仓文件，系统校验后进入可借计算流程"],
+          ["calc", "🧮", "可借计算结果", "查看系统根据持仓和风控规则计算出的可借数量"],
+          ["publish", "🚀", "券源发布", "选择可借股票，设置数量、期限、费率后发布至券池"],
+          ["mySource", "📦", "我的券源", "管理已发布、已借出、已撤回和风控冻结的券源"],
+          ["brokerRevenue", "💰", "收益报表", "查看借出股票产生的券息收益和结算状态"]
+        ]
+      },
+      trader: {
+        title: "交易员端菜单",
+        avatar: "TR",
+        menus: [
+          ["pool", "📊", "券池广场", "查看全平台已发布可借券源，支持筛选、锁券与撮合"],
+          ["demand", "📝", "借券需求", "登记并管理场外收到的借券需求"],
+          ["workspace", "🔁", "撮合工作台", "以看板方式跟进待撮合、已锁券、已确认和待交收需求"],
+          ["lifecycle", "🔄", "交易生命周期", "查看交易从确认、交收、计息、归还到结束的完整状态"],
+          ["settlement", "✅", "交收管理", "维护CCASS交收、归还、召回与异常交收状态"]
+        ]
+      },
+      admin: {
+        title: "管理后台菜单",
+        avatar: "AD",
+        menus: [
+          ["org", "🏢", "机构管理", "管理下手券商、借券方、额度和机构状态"],
+          ["permission", "🔐", "用户权限", "配置用户、角色、菜单权限、数据权限和审批权限"],
+          ["riskRule", "🛡️", "风控规则", "配置可借比例、集中度、额度、公司行动和异常波动规则"],
+          ["blackWhite", "⚫", "股票黑白名单", "管理股票准入、禁借、限制出借和特殊审批名单"],
+          ["audit", "📜", "审计日志", "记录用户登录、数据修改、审批、撮合、交收等操作日志"]
+        ]
+      }
+    };
+
+    let currentRole = "broker";
+    let currentPage = "upload";
+
+    const navEl = document.getElementById("nav");
+    const navTitle = document.getElementById("navTitle");
+    const pageTitle = document.getElementById("pageTitle");
+    const pageDesc = document.getElementById("pageDesc");
+    const content = document.getElementById("content");
+    const avatar = document.getElementById("avatar");
+    const modalMask = document.getElementById("modalMask");
+    const toastEl = document.getElementById("toast");
+
+    const stockRows = [
+      ["腾讯控股", "00700.HK", "860,000", "3.80%", "华南证券", "开放式", "T+0", "已发布", "green", "62%"],
+      ["阿里巴巴-W", "09988.HK", "1,240,000", "4.20%", "东方证券国际", "30天", "T+1", "部分借出", "orange", "48%"],
+      ["美团-W", "03690.HK", "420,000", "5.60%", "港湾证券", "7天", "T+0", "已发布", "green", "81%"],
+      ["快手-W", "01024.HK", "180,000", "6.90%", "星海证券", "隔夜", "T+1", "风控冻结", "red", "28%"]
+    ];
+
+    const renderers = {
+      upload() {
+        return `
+          ${metrics([
+            ["今日上传批次", "6", "4批成功 / 2批校验中", "green"],
+            ["覆盖账户数", "18,420", "较昨日 +8.4%", "blue"],
+            ["总持仓市值", "HK$ 2.86B", "已完成基础校验", "purple"],
+            ["异常数据", "23", "需补充字段或修正代码", "red"]
+          ])}
+          <div class="grid grid-2" style="margin-top:18px;">
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <div class="card-title">上传持仓文件</div>
+                  <div class="card-sub">支持 Excel / CSV，字段包含账户、股票、持仓、可用数量等</div>
+                </div>
+                <span class="tag tag-blue">MVP推荐</span>
+              </div>
+              <div class="card-body">
+                <div class="upload-box">
+                  <div class="upload-icon">↑</div>
+                  <div class="upload-title">拖拽文件到此处，或点击上传</div>
+                  <div class="upload-desc">支持 .xlsx / .csv，单文件不超过 50MB。上传后系统自动执行字段校验和重复校验。</div>
+                  <button class="btn btn-primary" onclick="toast('已模拟上传 holdings_20260115.xlsx')">选择文件</button>
+                  <button class="btn btn-outline" onclick="toast('模板已下载')">下载模板</button>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <div class="card-title">上传处理流程</div>
+                  <div class="card-sub">从文件上传到可借计算的自动化链路</div>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="steps">
+                  ${step(1,"文件格式校验","校验表头、字段类型、必填项和股票代码格式")}
+                  ${step(2,"账户与持仓校验","识别不可出借账户、冻结持仓、质押持仓和重复记录")}
+                  ${step(3,"行情与公司行动匹配","补充股票名称、收盘价、交易状态和公司行动限制")}
+                  ${step(4,"进入可借计算","根据风控规则计算理论可借数量和最终可借数量")}
+                </div>
+              </div>
+            </div>
+          </div>
+          ${tableCard("最近上传记录", "券商持仓文件上传历史和处理状态", 
+            ["文件名","上传时间","账户数","股票数","总持仓","校验状态","操作"],
+            [
+              ["holdings_20260115.xlsx","2026-01-15 09:12","4,820","186","12.42M",tag("校验通过","green"),btns("查看结果")],
+              ["holdings_margin.csv","2026-01-15 09:25","1,320","84","3.86M",tag("校验中","orange"),btns("查看进度")],
+              ["holdings_fix.xlsx","2026-01-14 18:22","430","22","780K",tag("存在异常","red"),btns("下载异常")]
+            ])}
+        `;
+      },
+
+      calc() {
+        return `
+          ${metrics([
+            ["系统可借总量", "9.86M", "可用持仓 × 风控比例", "green"],
+            ["风控剔除数量", "2.14M", "黑名单/公司行动/冻结账户", "red"],
+            ["可发布股票", "126", "覆盖科技、金融、医药", "blue"],
+            ["平均可借比例", "73.5%", "基础比例80%，按风险调整", "purple"]
+          ])}
+          <div class="toolbar" style="margin-top:18px;">
+            <div class="filters">
+              <input class="field" placeholder="股票代码 / 名称" />
+              <select class="select"><option>全部计算状态</option><option>可发布</option><option>不可借</option><option>需复核</option></select>
+              <select class="select"><option>全部风控原因</option><option>黑名单</option><option>公司行动</option><option>集中度限制</option></select>
+            </div>
+            <button class="btn btn-primary" onclick="toast('已批量生成待发布券源')">批量转入发布</button>
+          </div>
+          ${tableCard("可借计算结果", "展示持仓、可用数量、风控比例、可借数量和不可借原因",
+            ["股票","总持仓","可用持仓","风控比例","理论可借","已占用","剩余可借","计算状态","操作"],
+            [
+              [stock("腾讯控股","00700.HK"),"1,200,000","1,080,000","80%","864,000","120,000","744,000",tag("可发布","green"),btns("发布")],
+              [stock("阿里巴巴-W","09988.HK"),"1,800,000","1,550,000","75%","1,162,500","260,000","902,500",tag("可发布","green"),btns("发布")],
+              [stock("快手-W","01024.HK"),"420,000","360,000","0%","0","0","0",tag("风控冻结","red"),btns("查看原因")],
+              [stock("药明生物","02269.HK"),"680,000","600,000","40%","240,000","30,000","210,000",tag("需复核","orange"),btns("提交复核")]
+            ])}
+        `;
+      },
+
+      publish() {
+        return `
+          ${metrics([
+            ["待发布券源", "42", "来自最新计算批次", "blue"],
+            ["今日已发布", "18", "合计 2.1M 股", "green"],
+            ["发布中锁定", "320K", "避免重复占用", "orange"],
+            ["可撤回数量", "1.62M", "未锁定且未借出", "purple"]
+          ])}
+          <div class="grid grid-2" style="margin-top:18px;">
+            <div class="card">
+              <div class="card-head"><div><div class="card-title">发布券源</div><div class="card-sub">设置发布数量、最低借出量、参考费率、期限和有效期</div></div></div>
+              <div class="card-body">
+                <div class="mini-form">
+                  ${formRow("股票","<select><option>00700.HK 腾讯控股</option><option>09988.HK 阿里巴巴-W</option></select>")}
+                  ${formRow("系统可借","<input value='744,000' />")}
+                  ${formRow("发布数量","<input value='500,000' />")}
+                  ${formRow("参考费率","<input value='3.80%' />")}
+                  ${formRow("借券期限","<select><option>开放式</option><option>7天</option><option>30天</option></select>")}
+                  ${formRow("有效期","<select><option>当日有效</option><option>3日有效</option><option>长期有效</option></select>")}
+                  <div style="text-align:right;"><button class="btn btn-primary" onclick="toast('券源已发布至券池广场')">确认发布</button></div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head"><div><div class="card-title">发布前校验</div><div class="card-sub">系统自动检查是否符合发布规则</div></div><span class="tag tag-green">通过</span></div>
+              <div class="card-body">
+                <div class="steps">
+                  ${step(1,"数量校验通过","发布数量未超过系统剩余可借数量")}
+                  ${step(2,"黑白名单校验通过","该股票不在禁借名单中")}
+                  ${step(3,"交收占用校验通过","无重复发布、锁券或待交收冲突")}
+                  ${step(4,"公司行动校验通过","未来3个交易日无影响出借的公司行动")}
+                </div>
+              </div>
+            </div>
+          </div>
+          ${tableCard("待发布清单", "可从可借计算结果转入发布流程",
+            ["股票","剩余可借","建议发布","建议费率","期限","交收","状态","操作"],
+            [
+              [stock("腾讯控股","00700.HK"),"744,000","500,000","3.80%","开放式","T+0",tag("待发布","blue"),btns("发布")],
+              [stock("阿里巴巴-W","09988.HK"),"902,500","600,000","4.20%","30天","T+1",tag("待发布","blue"),btns("发布")],
+              [stock("药明生物","02269.HK"),"210,000","100,000","7.20%","7天","T+1",tag("待复核","orange"),btns("提交复核")]
+            ])}
+        `;
+      },
+
+      mySource() {
+        return `
+          ${metrics([
+            ["已发布券源", "6.82M", "当前展示在券池广场", "green"],
+            ["已借出数量", "2.14M", "券源利用率 31.4%", "blue"],
+            ["已锁定数量", "420K", "等待撮合确认", "orange"],
+            ["风控冻结", "8", "需运营或风控处理", "red"]
+          ])}
+          <div class="toolbar" style="margin-top:18px;">
+            <div class="filters">
+              <input class="field" placeholder="股票代码 / 名称" />
+              <select class="select"><option>全部状态</option><option>已发布</option><option>部分借出</option><option>已暂停</option><option>风控冻结</option></select>
+            </div>
+            <button class="btn btn-outline" onclick="toast('已导出我的券源')">导出</button>
+          </div>
+          ${tableCard("我的券源", "查看和管理本机构发布的所有券源",
+            ["股票","发布数量","已锁定","已借出","剩余可借","费率","期限","利用率","状态","操作"],
+            [
+              [stock("腾讯控股","00700.HK"),"500,000","50,000","180,000","270,000","3.80%","开放式",progress("46%"),tag("部分借出","orange"),btns("调整/撤回")],
+              [stock("阿里巴巴-W","09988.HK"),"600,000","80,000","240,000","280,000","4.20%","30天",progress("53%"),tag("部分借出","orange"),btns("调整/撤回")],
+              [stock("美团-W","03690.HK"),"220,000","0","0","220,000","5.60%","7天",progress("0%"),tag("已发布","green"),btns("暂停")],
+              [stock("快手-W","01024.HK"),"120,000","0","0","0","6.90%","隔夜",progress("0%"),tag("风控冻结","red"),btns("查看原因")]
+            ])}
+        `;
+      },
+
+      brokerRevenue() {
+        return `
+          ${metrics([
+            ["本月总券息", "HK$ 486K", "较上月 +12.8%", "green"],
+            ["平台服务费", "HK$ 72.9K", "服务费率 15%", "blue"],
+            ["券商净收益", "HK$ 413K", "待结算 96K", "purple"],
+            ["待确认账单", "5", "2笔超过3日", "orange"]
+          ])}
+          ${tableCard("收益报表", "按交易、股票和结算状态展示券息收益",
+            ["交易编号","股票","借出数量","费率","起息日","借出天数","总券息","服务费","净收益","状态"],
+            [
+              ["TRD-20260115-001",stock("腾讯控股","00700.HK"),"180,000","3.80%","2026-01-15","12","HK$ 86,420","HK$ 12,963","HK$ 73,457",tag("已结算","green")],
+              ["TRD-20260112-006",stock("阿里巴巴-W","09988.HK"),"240,000","4.20%","2026-01-12","9","HK$ 69,800","HK$ 10,470","HK$ 59,330",tag("待确认","orange")],
+              ["TRD-20260110-018",stock("美团-W","03690.HK"),"150,000","5.60%","2026-01-10","7","HK$ 42,360","HK$ 6,354","HK$ 36,006",tag("待结算","blue")]
+            ])}
+        `;
+      },
+
+      pool() {
+        return `
+          ${commonToolbar("股票代码 / 名称", "全部借出方", "全部期限", "创建撮合单")}
+          ${tableCard("券池广场", "交易员集中查看全平台可借券源，支持锁券、询价和撮合",
+            ["股票","可借数量","参考费率","借出方","期限","交收","利用率","状态","操作"],
+            stockRows.map(r => [stock(r[0],r[1]), r[2], r[3], r[4], r[5], r[6], progress(r[9]), tag(r[7],r[8]), actionBtns("锁券","撮合")])
+          )}
+        `;
+      },
+
+      demand() {
+        return `
+          ${metrics([
+            ["今日新增需求", "18", "科技股占比 62%", "blue"],
+            ["待撮合需求", "9", "总数量 2.8M", "orange"],
+            ["部分撮合", "5", "剩余 740K 待补足", "purple"],
+            ["完成率", "74%", "较昨日 +6.1%", "green"]
+          ])}
+          ${tableCard("借券需求", "登记场外借券需求并跟踪撮合进度",
+            ["需求单号","借券方","股票","需求数量","期望费率","期限","期望交收","负责人","状态","操作"],
+            [
+              ["REQ-20260115-001","Alpha Fund",stock("腾讯控股","00700.HK"),"300,000","≤4.0%","开放式","T+0","Alex",tag("待撮合","blue"),btns("去撮合")],
+              ["REQ-20260115-002","North Star",stock("药明生物","02269.HK"),"120,000","≤7.2%","7天","T+1","Cherry",tag("询价中","orange"),btns("更新")],
+              ["REQ-20260115-003","Beta Capital",stock("美团-W","03690.HK"),"150,000","≤5.8%","30天","T+0","Mike",tag("已完成","green"),btns("查看")]
+            ])}
+        `;
+      },
+
+      workspace() {
+        return `
+          <div class="toolbar">
+            <div class="filters">
+              <select class="select"><option>全部交易员</option><option>Alex</option><option>Cherry</option></select>
+              <select class="select"><option>全部优先级</option><option>高</option><option>中</option><option>低</option></select>
+            </div>
+            <button class="btn btn-primary" onclick="openModal()">+ 新增撮合</button>
+          </div>
+          <div class="kanban">
+            ${kanbanCol("待撮合", "4", "blue", [
+              deal("REQ-20260115-001","腾讯控股 00700.HK","新需求","blue",["需求数量","300,000","期望费率","≤4.0%","借券方","Alpha Fund","期限","开放式"]),
+              deal("REQ-20260115-002","药明生物 02269.HK","询价中","orange",["需求数量","120,000","期望费率","≤7.2%","借券方","North Star","期限","7天"])
+            ])}
+            ${kanbanCol("已锁券", "3", "orange", [
+              deal("MAT-20260115-018","阿里巴巴-W 09988.HK","剩余18分钟","orange",["锁定数量","80,000","费率","4.2%","借出方","东方证券国际","交收","T+1"])
+            ])}
+            ${kanbanCol("已确认", "6", "green", [
+              deal("MAT-20260115-012","美团-W 03690.HK","双方确认","green",["撮合数量","150,000","费率","5.6%","借出方","港湾证券","借券方","Beta Capital"])
+            ])}
+            ${kanbanCol("待交收", "3", "red", [
+              deal("TRD-20260115-009","小米集团-W 01810.HK","交收异常","red",["交易数量","220,000","费率","4.9%","预计交收","今日","状态","待处理"])
+            ])}
+          </div>
+        `;
+      },
+
+      lifecycle() {
+        return `
+          ${metrics([
+            ["存续交易", "126", "正在计息中", "green"],
+            ["今日起息", "14", "已完成交收", "blue"],
+            ["即将到期", "8", "未来2个交易日", "orange"],
+            ["召回申请", "3", "等待借券方确认", "red"]
+          ])}
+          <div class="grid grid-2" style="margin-top:18px;">
+            <div class="card">
+              <div class="card-head"><div><div class="card-title">交易生命周期</div><div class="card-sub">从撮合确认到交易结束的全链路状态</div></div></div>
+              <div class="card-body">
+                <div class="timeline">
+                  ${tl("1","撮合确认","双方确认股票、数量、费率、期限和交收安排")}
+                  ${tl("2","待交收 / 交收中","生成交易记录并跟踪CCASS交收状态")}
+                  ${tl("3","已交收 / 起息","股票转移完成，系统开始计算券息")}
+                  ${tl("4","存续管理","处理到期提醒、召回申请、展期和收益预估")}
+                  ${tl("5","归还 / 结束","归还交收完成，释放占用并生成账单")}
+                </div>
+              </div>
+            </div>
+            ${tableCard("重点交易", "当前需要关注的交易生命周期节点",
+              ["交易编号","股票","借出方","借券方","数量","当前阶段","下一动作"],
+              [
+                ["TRD-20260115-009",stock("小米集团-W","01810.HK"),"华南证券","Gamma Fund","220,000",tag("交收失败","red"),btns("处理")],
+                ["TRD-20260114-033",stock("腾讯控股","00700.HK"),"东方证券国际","Alpha Fund","300,000",tag("计息中","green"),btns("查看")],
+                ["TRD-20260108-021",stock("美团-W","03690.HK"),"港湾证券","Beta Capital","150,000",tag("待归还","orange"),btns("发起归还")]
+              ])}
+          </div>
+        `;
+      },
+
+      settlement() {
+        return `
+          ${tableCard("交收管理", "维护CCASS交收、归还、召回和交收失败处理",
+            ["交易编号","股票","借出方","借券方","数量","预计交收日","CCASS编号","状态","操作"],
+            [
+              ["TRD-20260115-009",stock("小米集团-W","01810.HK"),"华南证券","Gamma Fund","220,000","2026-01-15","CCASS-889201",tag("交收失败","red"),btns("处理")],
+              ["TRD-20260115-012",stock("美团-W","03690.HK"),"港湾证券","Beta Capital","150,000","2026-01-15","CCASS-889236",tag("交收中","orange"),btns("查看")],
+              ["TRD-20260114-033",stock("腾讯控股","00700.HK"),"东方证券国际","Alpha Fund","300,000","2026-01-14","CCASS-888912",tag("已交收","green"),btns("查看")],
+              ["TRD-20260108-021",stock("阿里巴巴-W","09988.HK"),"星海证券","Delta Fund","200,000","2026-01-16","CCASS-887902",tag("待归还","blue"),btns("归还")]
+            ])}
+        `;
+      },
+
+      org() {
+        return `
+          ${metrics([
+            ["下手券商", "18", "启用 16 / 停用 2", "blue"],
+            ["借券方机构", "36", "额度使用率 58%", "green"],
+            ["总授信额度", "HK$ 8.6B", "已占用 HK$ 3.2B", "purple"],
+            ["待审批机构", "4", "资料待补充", "orange"]
+          ])}
+          ${tableCard("机构管理", "管理券商、借券方、额度、账户和机构状态",
+            ["机构编号","机构名称","机构类型","额度","已占用","联系人","状态","操作"],
+            [
+              ["ORG-BR-001","华南证券","下手券商","HK$ 800M","HK$ 260M","李经理",tag("启用","green"),btns("编辑")],
+              ["ORG-BR-002","东方证券国际","下手券商","HK$ 1.2B","HK$ 420M","陈经理",tag("启用","green"),btns("编辑")],
+              ["ORG-FD-009","Alpha Fund","借券方","HK$ 500M","HK$ 310M","Alex",tag("额度预警","orange"),btns("调整额度")],
+              ["ORG-FD-018","North Star","借券方","HK$ 300M","HK$ 0","Cherry",tag("待审批","blue"),btns("审批")]
+            ])}
+        `;
+      },
+
+      permission() {
+        return `
+          ${metrics([
+            ["系统用户", "126", "本月新增 8", "blue"],
+            ["角色数量", "12", "含券商、交易员、风控", "purple"],
+            ["待授权申请", "6", "需管理员审批", "orange"],
+            ["高敏权限用户", "9", "含导出和风控配置", "red"]
+          ])}
+          ${tableCard("用户权限", "配置用户、角色、菜单权限、数据权限和操作权限",
+            ["用户","所属机构","角色","数据权限","最近登录","状态","操作"],
+            [
+              ["broker_admin","华南证券","券商管理员","仅本机构","2026-01-15 09:42",tag("启用","green"),btns("授权")],
+              ["trader_alex","平台交易部","交易员","全平台券源","2026-01-15 10:08",tag("启用","green"),btns("授权")],
+              ["risk_jane","平台风控部","风控人员","全量风控数据","2026-01-15 08:55",tag("高敏权限","red"),btns("复核")],
+              ["ops_mike","平台运营部","运营人员","机构与交易数据","2026-01-14 18:20",tag("启用","green"),btns("授权")]
+            ])}
+        `;
+      },
+
+      riskRule() {
+        return `
+          ${metrics([
+            ["启用规则", "28", "覆盖事前/事中/事后", "green"],
+            ["今日触发", "43", "高风险 6 条", "orange"],
+            ["冻结券源", "12", "价格波动/公司行动", "red"],
+            ["规则版本", "v2.6.1", "今日 09:00 生效", "blue"]
+          ])}
+          <div class="grid grid-2" style="margin-top:18px;">
+            <div class="card">
+              <div class="card-head"><div><div class="card-title">风控规则配置</div><div class="card-sub">支持比例、额度、集中度、公司行动和交收规则</div></div></div>
+              <div class="card-body">
+                <div class="grid">
+                  ${rule("基础可借比例","默认最多可借出可用持仓的 80%，可按股票风险等级调整。","启用")}
+                  ${rule("单票集中度限制","单只股票平台总出借数量不得超过总可借的 85%。","启用")}
+                  ${rule("公司行动限制","除权、供股、合股、停牌窗口期自动暂停出借。","启用")}
+                  ${rule("异常波动限制","近3日价格波动超过阈值，自动降低比例或冻结。","启用")}
+                </div>
+              </div>
+            </div>
+            ${tableCard("规则触发记录", "最近风控规则触发明细",
+              ["时间","股票","规则","影响","处理状态"],
+              [
+                ["2026-01-15 10:18",stock("快手-W","01024.HK"),"异常波动限制","冻结新发布",tag("已生效","red")],
+                ["2026-01-15 09:48",stock("腾讯控股","00700.HK"),"单票集中度","限制新增撮合",tag("预警","orange")],
+                ["2026-01-15 09:12",stock("药明生物","02269.HK"),"流动性限制","可借比例降至40%",tag("已生效","blue")]
+              ])}
+          </div>
+        `;
+      },
+
+      blackWhite() {
+        return `
+          ${metrics([
+            ["黑名单股票", "36", "禁止发布和撮合", "red"],
+            ["白名单股票", "168", "优先准入", "green"],
+            ["限制名单", "24", "需风控审批", "orange"],
+            ["今日变更", "7", "全部已审计留痕", "blue"]
+          ])}
+          ${tableCard("股票黑白名单", "管理股票准入、禁借、限制出借和特殊审批名单",
+            ["股票","名单类型","限制原因","生效时间","失效时间","操作人","状态","操作"],
+            [
+              [stock("快手-W","01024.HK"),tag("黑名单","red"),"价格异常波动","2026-01-15","2026-01-22","risk_jane",tag("生效中","red"),btns("移除")],
+              [stock("腾讯控股","00700.HK"),tag("白名单","green"),"高流动性核心标的","2026-01-01","长期","ops_mike",tag("生效中","green"),btns("编辑")],
+              [stock("药明生物","02269.HK"),tag("限制名单","orange"),"低流动性，可借比例40%","2026-01-15","2026-01-18","risk_jane",tag("生效中","orange"),btns("调整")],
+              [stock("小米集团-W","01810.HK"),tag("白名单","green"),"可正常出借","2026-01-01","长期","admin",tag("生效中","green"),btns("编辑")]
+            ])}
+        `;
+      },
+
+      audit() {
+        return `
+          ${metrics([
+            ["今日操作日志", "1,842", "覆盖所有业务模块", "blue"],
+            ["高敏操作", "28", "规则/额度/权限变更", "red"],
+            ["导出行为", "16", "均已水印记录", "orange"],
+            ["异常登录", "0", "安全状态正常", "green"]
+          ])}
+          <div class="card" style="margin-top:18px;">
+            <div class="card-head">
+              <div>
+                <div class="card-title">审计日志</div>
+                <div class="card-sub">记录用户登录、数据修改、审批、撮合、交收等全流程操作</div>
+              </div>
+              <button class="btn btn-outline" onclick="toast('审计日志已导出')">导出日志</button>
+            </div>
+            <div class="card-body">
+              <div class="audit">
+                ${auditRow("10:42:18","trader_alex 创建撮合单 MAT-20260115-018，股票 09988.HK，数量 80,000。","交易员端 / 撮合工作台")}
+                ${auditRow("10:18:06","risk_jane 将 01024.HK 加入黑名单，原因：异常价格波动。","管理后台 / 黑白名单")}
+                ${auditRow("09:55:44","broker_admin 发布 00700.HK 券源 500,000 股，参考费率 3.80%。","券商端 / 券源发布")}
+                ${auditRow("09:21:30","ops_mike 调整 Alpha Fund 额度，从 HK$400M 调整至 HK$500M。","管理后台 / 机构管理")}
+                ${auditRow("09:12:03","broker_admin 上传 holdings_20260115.xlsx，校验通过。","券商端 / 持仓上传")}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    };
+
+    function renderRole(role, firstPage) {
+      currentRole = role;
+      const cfg = roleMenus[role];
+      navTitle.textContent = cfg.title;
+      avatar.textContent = cfg.avatar;
+      navEl.innerHTML = cfg.menus.map((m, idx) => `
+        <div class="nav-item ${idx === 0 ? "active" : ""}" data-page="${m[0]}" data-title="${m[2]}" data-desc="${m[3]}">
+          <span>${m[1]}</span> ${m[2]}
+        </div>
+      `).join("");
+
+      document.querySelectorAll(".role-btn").forEach(b => {
+        b.classList.toggle("active", b.dataset.role === role);
+      });
+
+      bindNav();
+      const p = firstPage || cfg.menus[0][0];
+      renderPage(p);
+    }
+
+    function bindNav() {
+      document.querySelectorAll(".nav-item").forEach(item => {
+        item.addEventListener("click", () => {
+          document.querySelectorAll(".nav-item").forEach(i => i.classList.remove("active"));
+          item.classList.add("active");
+          renderPage(item.dataset.page);
+        });
+      });
+    }
+
+    function renderPage(page) {
+      currentPage = page;
+      const menu = roleMenus[currentRole].menus.find(m => m[0] === page);
+      pageTitle.textContent = menu[2];
+      pageDesc.textContent = menu[3];
+      content.innerHTML = renderers[page] ? renderers[page]() : "<div class='card'><div class='card-body'>页面待配置</div></div>";
+    }
+
+    document.querySelectorAll(".role-btn").forEach(btn => {
+      btn.addEventListener("click", () => renderRole(btn.dataset.role));
+    });
+
+    function metrics(items) {
+      return `
+        <div class="grid grid-4">
+          ${items.map(([label,value,note,type]) => `
+            <div class="card metric">
+              <div class="metric-label">${label}</div>
+              <div class="metric-value">${value}</div>
+              <div class="metric-note note-${type || "blue"}">${note}</div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    function tableCard(title, sub, heads, rows) {
+      return `
+        <div class="card" style="margin-top:18px;">
+          <div class="card-head">
+            <div>
+              <div class="card-title">${title}</div>
+              <div class="card-sub">${sub}</div>
+            </div>
+            <span class="tag tag-blue">实时数据</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>${heads.map(h => `<th>${h}</th>`).join("")}</tr></thead>
+              <tbody>
+                ${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    function stock(name, code) {
+      return `
+        <div class="stock">
+          <div class="stock-logo">${name.slice(0,1)}</div>
+          <div>
+            <div class="stock-name">${name}</div>
+            <div class="stock-code">${code}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function tag(text, type) {
+      return `<span class="tag tag-${type}">${text}</span>`;
+    }
+
+    function progress(width) {
+      return `<div class="progress"><i style="width:${width};"></i></div>`;
+    }
+
+    function btns(text) {
+      return `<button class="btn btn-soft" onclick="toast('${text} 操作已模拟执行')">${text}</button>`;
+    }
+
+    function actionBtns(a,b) {
+      return `
+        <button class="btn btn-soft" onclick="toast('已锁定券源，有效期30分钟')">${a}</button>
+        <button class="btn btn-outline" onclick="openModal()">${b}</button>
+      `;
+    }
+
+    function step(n,t,d) {
+      return `
+        <div class="step">
+          <div class="step-num">${n}</div>
+          <div>
+            <div class="step-title">${t}</div>
+            <div class="step-desc">${d}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function formRow(label, inner) {
+      return `<div class="form-row"><label>${label}</label>${inner}</div>`;
+    }
+
+    function commonToolbar(ph, s1, s2, btn) {
+      return `
+        <div class="toolbar">
+          <div class="filters">
+            <input class="field" placeholder="${ph}" />
+            <select class="select"><option>${s1}</option></select>
+            <select class="select"><option>${s2}</option></select>
+            <select class="select"><option>全部状态</option><option>已发布</option><option>部分借出</option></select>
+          </div>
+          <div>
+            <button class="btn btn-outline" onclick="toast('已导出当前列表')">导出</button>
+            <button class="btn btn-primary" onclick="openModal()">+ ${btn}</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function kanbanCol(title, count, type, cards) {
+      return `
+        <div class="kanban-col">
+          <div class="kanban-title">${title} ${tag(count,type)}</div>
+          ${cards.join("")}
+        </div>
+      `;
+    }
+
+    function deal(id,name,status,type,meta) {
+      return `
+        <div class="deal-card">
+          <div style="display:flex;justify-content:space-between;gap:10px;">
+            <div>
+              <div class="deal-id">${id}</div>
+              <div class="deal-name">${name}</div>
+            </div>
+            ${tag(status,type)}
+          </div>
+          <div class="deal-meta">
+            ${[0,2,4,6].map(i => `<div>${meta[i]}<strong>${meta[i+1]}</strong></div>`).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    function tl(n,t,d) {
+      return `
+        <div class="timeline-item">
+          <div class="timeline-dot">${n}</div>
+          <div>
+            <div class="tl-title">${t}</div>
+            <div class="tl-desc">${d}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function rule(t,d,status) {
+      return `
+        <div class="rule-card">
+          <div>
+            <div class="step-title">${t}</div>
+            <div class="step-desc">${d}</div>
+            <div style="margin-top:10px;">${tag(status,"green")}</div>
+          </div>
+          <div class="switch"></div>
+        </div>
+      `;
+    }
+
+    function auditRow(time, action, module) {
+      return `
+        <div class="audit-row">
+          <div><strong>${time}</strong><div class="card-sub">2026-01-15</div></div>
+          <div>${action}</div>
+          <div>${tag(module,"blue")}</div>
+        </div>
+      `;
+    }
+
+    function openModal() {
+      modalMask.classList.add("show");
+    }
+
+    function closeModal() {
+      modalMask.classList.remove("show");
+    }
+
+    modalMask.addEventListener("click", e => {
+      if (e.target === modalMask) closeModal();
+    });
+
+    function toast(message) {
+      toastEl.textContent = message;
+      toastEl.classList.add("show");
+      setTimeout(() => toastEl.classList.remove("show"), 2600);
+    }
+
+    renderRole("broker", "upload");
+  </script>
+</body>
+</html>
