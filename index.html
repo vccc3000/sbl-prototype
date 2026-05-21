@@ -956,30 +956,40 @@
 
     const renderers = {
       upload() {
+        const hasData = lendableResults.length > 0;
+        const totalPositions = uploadedPositions.length;
+        const totalStocks = lendableResults.length;
+        const totalGross = lendableResults.reduce((s, r) => s + r.grossPosition, 0);
+        const totalLendable = lendableResults.reduce((s, r) => s + r.riskAdjustedLendable, 0);
         return `
           ${metrics([
-            ["今日上传批次", "6", "4批成功 / 2批校验中", "green"],
-            ["覆盖账户数", "18,420", "较昨日 +8.4%", "blue"],
-            ["总持仓市值", "HKD 2.86B", "已完成基础校验", "purple"],
-            ["异常数据", "23", "字段缺失 / 代码错误", "red"]
+            [hasData ? "已解析持仓" : "今日上传批次", hasData ? totalPositions.toLocaleString() : "0", hasData ? `${totalStocks} 只证券` : "等待上传", hasData ? "green" : "blue"],
+            ["总持仓股数", hasData ? totalGross.toLocaleString() : "--", hasData ? "已完成可借计算" : "未上传", hasData ? "purple" : "blue"],
+            ["风险调整可借", hasData ? totalLendable.toLocaleString() : "--", hasData ? "综合可借率 " + (totalGross > 0 ? (totalLendable / totalGross * 100).toFixed(1) : 0) + "%" : "等待计算", hasData ? "green" : "orange"],
+            ["可执行数量", hasData ? lendableResults.reduce((s, r) => s + r.firmAvailable, 0).toLocaleString() : "--", hasData ? "保守下界" : "等待计算", hasData ? "blue" : "orange"]
           ])}
           <div class="grid grid-2" style="margin-top:16px;">
             <div class="card">
               <div class="card-head">
                 <div>
                   <div class="card-title">上传港股持仓文件</div>
-                  <div class="card-sub">支持 Excel / CSV，包含账户、证券代码、ISIN、持仓、可用数量等字段</div>
+                  <div class="card-sub">支持 CSV 格式，包含证券代码、持仓数量、客户标识、授权借出等字段</div>
                 </div>
-                ${tag("Holdings","blue")}
+                ${tag("CSV","blue")}
               </div>
               <div class="card-body">
-                <div class="upload-box">
+                <div class="upload-box" style="cursor:pointer;position:relative;" onclick="document.getElementById('csvFileInput').click()">
+                  <input type="file" id="csvFileInput" accept=".csv,.txt" style="display:none;" onchange="handleFileUpload(event)" />
                   <div class="upload-icon">↑</div>
-                  <div style="font-weight:900;font-size:18px;margin-bottom:8px;">拖拽文件到此处，或点击上传</div>
-                  <div style="color:var(--muted);margin-bottom:16px;">上传后自动执行字段、账户、证券代码、ISIN、重复持仓和冻结持仓校验。</div>
-                  <button class="btn btn-blue" onclick="toast('已模拟上传 holdings_hk_20260115.xlsx')">选择文件</button>
-                  <button class="btn btn-outline" onclick="toast('港股持仓模板已下载')">下载模板</button>
+                  <div style="font-weight:900;font-size:18px;margin-bottom:8px;">点击此处选择 CSV 文件</div>
+                  <div style="color:var(--muted);margin-bottom:16px;">支持字段：证券代码、证券名称、持仓数量、客户标识、授权借出、账户类型、已借出、待卖出、已预留</div>
+                  <button class="btn btn-blue" onclick="event.stopPropagation(); document.getElementById('csvFileInput').click()">选择文件</button>
+                  <button class="btn btn-outline" onclick="event.stopPropagation(); downloadSampleCsv()">下载示例 CSV</button>
+                  <button class="btn btn-primary" style="margin-left:8px;" onclick="event.stopPropagation(); useDemoData()">使用演示数据体验</button>
                 </div>
+                ${hasData ? `<div style="margin-top:12px;padding:10px;background:var(--softGreen);border-radius:10px;color:var(--green);font-weight:800;">
+                  ✓ 已解析 ${totalPositions} 行，覆盖 ${totalStocks} 只证券，综合可借率 ${(totalGross > 0 ? (totalLendable / totalGross * 100).toFixed(1) : 0)}%
+                </div>` : ""}
               </div>
             </div>
             <div class="card">
@@ -990,34 +1000,93 @@
                 </div>
               </div>
               <div class="card-body">
-                ${step(1,"文件格式校验","校验表头、字段类型、必填项和证券代码格式")}
-                ${step(2,"账户与持仓校验","识别不可出借账户、冻结持仓、质押持仓和重复记录")}
-                ${step(3,"行情与公司行动匹配","补充证券名称、收盘价、停牌状态和公司行动限制")}
-                ${step(4,"进入可借计算","根据风控规则计算理论可借和最终可借数量")}
+                ${step(1, "文件解析与校验", "解析 CSV 表头，校验必填字段（证券代码、持仓数量），识别无效行")}
+                ${step(2, "持仓分组与聚合", "按证券代码分组，汇总各客户持仓，计算平台总库存")}
+                ${step(3, "四层可借量计算", "总持仓 → 有效库存 → 操作可用 → 风险调整可借 → 可执行数量")}
+                ${step(4, "风险因子评估", "客户集中度(MCS/HHI)、单券集中度、流动性、市场压力、FSB haircut")}
               </div>
             </div>
           </div>
-          ${tableCard("最近上传记录", "券商港股持仓文件上传历史和处理状态",
-            ["文件名","上传时间","账户数","证券数","总持仓","校验状态","操作"],
-            [
-              ["holdings_hk_20260115.xlsx","2026-01-15 09:12","4,820","186","12.42M",tag("校验通过","green"),btn("查看结果")],
-              ["holdings_margin_hk.csv","2026-01-15 09:25","1,320","84","3.86M",tag("校验中","orange"),btn("查看进度")],
-              ["holdings_fix_hk.xlsx","2026-01-14 18:22","430","22","780K",tag("存在异常","red"),btn("下载异常")]
-            ])}
         `;
       },
 
       calc() {
-        return genericPage("可借计算结果", [
-          ["系统可借总量","9.86M","可用持仓 × 风控比例","green"],
-          ["风控剔除数量","2.14M","黑名单 / 公司行动 / 冻结账户","red"],
-          ["可发布证券","126","覆盖科技、金融、医药","blue"],
-          ["平均可借比例","73.5%","基础比例80%，按风险调整","purple"]
-        ], "可借计算结果", [
-          [stock("腾讯控股","00700.HK / KYG875721634"),"1,200,000","1,080,000","80%","864,000","120,000","744,000",tag("可发布","green"),btn("发布")],
-          [stock("阿里巴巴-W","09988.HK / KYG017191142"),"1,800,000","1,550,000","75%","1,162,500","260,000","902,500",tag("可发布","green"),btn("发布")],
-          [stock("快手-W","01024.HK / KYG532631028"),"420,000","360,000","0%","0","0","0",tag("风控冻结","red"),btn("查看原因")]
-        ], ["证券","总持仓","可用持仓","风控比例","理论可借","已占用","剩余可借","状态","操作"]);
+        if (lendableResults.length === 0) {
+          return `
+            ${metrics([
+              ["系统可借总量", "--", "请先上传持仓数据", "blue"],
+              ["风控剔除数量", "--", "等待计算", "red"],
+              ["可发布证券", "--", "等待计算", "blue"],
+              ["平均可借比例", "--", "等待计算", "purple"]
+            ])}
+            <div class="card" style="margin-top:16px;text-align:center;padding:60px 20px;">
+              <div class="upload-icon" style="margin:0 auto 16px;">🧮</div>
+              <div style="font-weight:900;font-size:20px;margin-bottom:8px;">暂无可借计算结果</div>
+              <div style="color:var(--muted);margin-bottom:20px;">请先在「持仓上传」页面上传 CSV 文件，系统将自动计算可借数量</div>
+              <button class="btn btn-blue" onclick="document.querySelectorAll('.nav-item').forEach(i=>{if(i.dataset.page==='upload')i.click()})">前往上传</button>
+              <button class="btn btn-primary" style="margin-left:8px;" onclick="useDemoData()">使用演示数据</button>
+            </div>
+          `;
+        }
+
+        const totalGross = lendableResults.reduce((s, r) => s + r.grossPosition, 0);
+        const totalEligible = lendableResults.reduce((s, r) => s + r.eligibleInventory, 0);
+        const totalLendable = lendableResults.reduce((s, r) => s + r.riskAdjustedLendable, 0);
+        const totalFirm = lendableResults.reduce((s, r) => s + r.firmAvailable, 0);
+        const totalUnauth = lendableResults.reduce((s, r) => s + r.breakdown.unauthorizedDeduction, 0);
+        const avgRatio = totalGross > 0 ? (totalLendable / totalGross * 100).toFixed(1) : "0";
+        const riskRestricted = lendableResults.filter(r => r.riskLevel === "restricted").length;
+        const riskWarning = lendableResults.filter(r => r.riskLevel === "warning").length;
+
+        const rows = lendableResults.map(r => {
+          const ratio = r.grossPosition > 0 ? (r.riskAdjustedLendable / r.grossPosition * 100).toFixed(1) : "0";
+          const riskTag = r.riskLevel === "normal" ? tag("正常","green")
+            : r.riskLevel === "warning" ? tag("预警","orange")
+            : tag("受限","red");
+          const pct = r.grossPosition > 0 ? Math.min(100, r.riskAdjustedLendable / r.grossPosition * 100) : 0;
+          const barColor = r.riskLevel === "normal" ? "#16a34a" : r.riskLevel === "warning" ? "#f59e0b" : "#dc2626";
+          return [
+            stock(r.stockName, r.stockCode),
+            r.grossPosition.toLocaleString(),
+            r.eligibleInventory.toLocaleString(),
+            r.operationalAvailable.toLocaleString(),
+            `<div style="display:flex;align-items:center;gap:8px;"><span style="font-weight:900;min-width:70px;">${r.riskAdjustedLendable.toLocaleString()}</span><div style="width:80px;height:7px;background:#e5eaf2;border-radius:99px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${barColor};border-radius:inherit;"></div></div><span style="font-size:12px;color:var(--muted);">${ratio}%</span></div>`,
+            r.firmAvailable.toLocaleString(),
+            r.primaryBottleneck,
+            riskTag,
+            `<button class="btn btn-soft" onclick="showDetail('${r.stockCode}')">明细</button>`
+          ];
+        });
+
+        return `
+          ${metrics([
+            ["风险调整可借总量", totalLendable.toLocaleString(), `可执行 ${totalFirm.toLocaleString()}`, "green"],
+            ["总持仓 / 有效库存", `${totalGross.toLocaleString()} / ${totalEligible.toLocaleString()}`, `未授权剔除 ${totalUnauth.toLocaleString()}`, "purple"],
+            ["可发布证券", `${lendableResults.length}`, `正常 ${lendableResults.length - riskRestricted - riskWarning} / 预警 ${riskWarning} / 受限 ${riskRestricted}`, "blue"],
+            ["综合可借率", avgRatio + "%", `规则版本 ${RULES.ruleVersion}`, riskRestricted > 0 ? "orange" : "green"]
+          ])}
+          <div class="card" style="margin-top:16px;">
+            <div class="card-head">
+              <div>
+                <div class="card-title">四层可借量计算结果</div>
+                <div class="card-sub">总持仓(L0) → 有效库存(L1) → 操作可用(L2) → 风险调整可借(L3) → 可执行数量(L4)</div>
+              </div>
+              <div style="display:flex;gap:8px;">
+                ${tag("v3 引擎","blue")}
+                ${tag(lendableResults.length + " 只证券","purple")}
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table style="min-width:1400px;">
+                <thead><tr>
+                  <th>证券</th><th>L0 总持仓</th><th>L1 有效库存</th><th>L2 操作可用</th><th>L3 风险调整可借</th><th>L4 可执行</th><th>主要瓶颈</th><th>风险</th><th>操作</th>
+                </tr></thead>
+                <tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody>
+              </table>
+            </div>
+          </div>
+          <div id="detailPanel" style="margin-top:16px;display:none;"></div>
+        `;
       },
 
       publish() {
@@ -1933,6 +2002,398 @@
 
     function submitBulkTrade() {
       toast("批量港股借券交易已提交，系统正在执行撮合校验、SBL登记检查和CCASS指令生成");
+    }
+
+    // ========== 可借计算引擎 v3 ==========
+    // 全局状态
+    let lendableResults = []; // 存储计算结果
+    let uploadedPositions = []; // 存储上传的持仓行
+
+    // 规则常量
+    const RULES = {
+      clientConcentration: {
+        mcsLimit: 0.80,
+        recallReserveTrigger: 0.30,
+        recallReservePct: 0.50,
+        hhiThreshold: 0.25
+      },
+      positionConcentration: { singleStockLimit: 0.25 },
+      marketFloatConcentration: { floatLimit: 0.10 },
+      liquidity: { defaultFactor: 0.90 },
+      haircut: { mainIndex: 0.06, other: 0.10 },
+      marketStress: {
+        normal: { maxUtil: 0.70, maxFee: 200, discount: 1.0 },
+        elevated: { maxUtil: 0.85, maxFee: 500, discount: 0.90 },
+        special: { minFee: 500, maxFee: 2000, discount: 0.70 },
+        htb: { minFee: 2000, discount: 0.50 }
+      },
+      defaultPlatformTotal: 100000000, // 默认平台总库存（mock）
+      defaultMarketFloat: 500000000, // 默认自由流通股（mock）
+      ruleVersion: "v3.0"
+    };
+
+    // CSV 列名映射
+    const CSV_COLUMNS = {
+      stockCode: ["证券代码", "stockCode", "stock_code", "code", "证券编号"],
+      stockName: ["证券名称", "stockName", "stock_name", "name", "名称"],
+      quantity: ["持仓数量", "quantity", "qty", "数量", "股数", "持仓"],
+      clientId: ["客户标识", "clientId", "client_id", "客户", "账户", "client"],
+      authorized: ["授权借出", "authorized", "auth", "是否授权"],
+      positionType: ["账户类型", "positionType", "type", "类型"],
+      onLoan: ["已借出", "onLoan", "on_loan"],
+      pendingSell: ["待卖出", "pendingSell", "pending_sell"],
+      reserved: ["已预留", "reserved"]
+    };
+
+    // 解析 CSV 文本
+    function parseCsv(text) {
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) return { positions: [], errors: ["文件内容不足，至少需要表头和一行数据"] };
+
+      const errors = [];
+      // 解析表头
+      const headers = parseCsvLine(lines[0]);
+      const colMap = {};
+      headers.forEach((h, i) => {
+        const trimmed = h.trim().replace(/"/g, "");
+        for (const [key, aliases] of Object.entries(CSV_COLUMNS)) {
+          if (aliases.some(a => trimmed.toLowerCase() === a.toLowerCase())) {
+            colMap[key] = i;
+            break;
+          }
+        }
+      });
+
+      if (colMap.stockCode === undefined) errors.push("未找到「证券代码」列，请检查表头");
+      if (colMap.quantity === undefined) errors.push("未找到「持仓数量」列，请检查表头");
+
+      const positions = [];
+      for (let i = 1; i < lines.length; i++) {
+        const vals = parseCsvLine(lines[i]);
+        const pos = {
+          id: `P${String(i).padStart(5, "0")}`,
+          stockCode: (vals[colMap.stockCode] || "").trim().replace(/"/g, ""),
+          stockName: (vals[colMap.stockName] || "").trim().replace(/"/g, ""),
+          quantity: parseInt(vals[colMap.quantity]) || 0,
+          clientId: (vals[colMap.clientId] || "").trim().replace(/"/g, "") || "UNKNOWN",
+          authorized: colMap.authorized !== undefined
+            ? ["true","1","yes","是","授权"].includes((vals[colMap.authorized] || "").trim().toLowerCase())
+            : true,
+          positionType: (vals[colMap.positionType] || "cash").trim().replace(/"/g, ""),
+          brokerCode: "BRK001",
+          onLoanQuantity: parseInt(vals[colMap.onLoan]) || 0,
+          pendingSellQuantity: parseInt(vals[colMap.pendingSell]) || 0,
+          reservedQuantity: parseInt(vals[colMap.reserved]) || 0,
+          recallIssuedQuantity: 0,
+          corpActionLockQuantity: 0
+        };
+        if (!pos.stockCode) {
+          errors.push(`第 ${i + 1} 行：证券代码为空`);
+          continue;
+        }
+        if (pos.quantity <= 0) {
+          errors.push(`第 ${i + 1} 行：持仓数量无效`);
+          continue;
+        }
+        positions.push(pos);
+      }
+      return { positions, errors };
+    }
+
+    function parseCsvLine(line) {
+      const result = [];
+      let current = "";
+      let inQuotes = false;
+      for (const ch of line) {
+        if (ch === '"') { inQuotes = !inQuotes; continue; }
+        if (ch === "," && !inQuotes) { result.push(current); current = ""; continue; }
+        current += ch;
+      }
+      result.push(current);
+      return result;
+    }
+
+    // 单只股票可借计算
+    function calculateLendable(positions, stockCode, stockName, brokerCode, platformTotal) {
+      const authorized = positions.filter(p => p.authorized);
+      const grossPosition = positions.reduce((s, p) => s + p.quantity, 0);
+
+      // L1: eligible inventory
+      const unauthorizedDeduction = positions.filter(p => !p.authorized).reduce((s, p) => s + p.quantity, 0);
+      const eligibleInventory = grossPosition - unauthorizedDeduction;
+
+      // L2: operational available (扣减库存状态)
+      const onLoanDeduction = authorized.reduce((s, p) => s + (p.onLoanQuantity || 0), 0);
+      const pendingSellDeduction = authorized.reduce((s, p) => s + (p.pendingSellQuantity || 0), 0);
+      const recallIssuedDeduction = authorized.reduce((s, p) => s + (p.recallIssuedQuantity || 0), 0);
+      const reservedDeduction = authorized.reduce((s, p) => s + (p.reservedQuantity || 0), 0);
+      const corpActionLockDeduction = authorized.reduce((s, p) => s + (p.corpActionLockQuantity || 0), 0);
+      const operationalAvailable = Math.max(0, eligibleInventory - onLoanDeduction - pendingSellDeduction - recallIssuedDeduction - reservedDeduction - corpActionLockDeduction);
+
+      if (operationalAvailable <= 0) {
+        return makeZeroResult(stockCode, stockName, brokerCode, grossPosition, eligibleInventory, unauthorizedDeduction,
+          onLoanDeduction, pendingSellDeduction, recallIssuedDeduction, reservedDeduction, corpActionLockDeduction);
+      }
+
+      // L3: 风险约束计算
+      const constraints = [];
+
+      // 客户集中度
+      const clientAgg = {};
+      authorized.forEach(p => {
+        clientAgg[p.clientId] = (clientAgg[p.clientId] || 0) + p.quantity;
+      });
+      const sortedClients = Object.entries(clientAgg).sort((a, b) => b[1] - a[1]);
+      const totalAuthQty = sortedClients.reduce((s, c) => s + c[1], 0);
+      const mcs = sortedClients.length > 0 ? sortedClients[0][1] / totalAuthQty : 1;
+      const hhi = sortedClients.reduce((s, c) => s + Math.pow(c[1] / totalAuthQty, 2), 0);
+      const nEff = hhi > 0 ? Math.round(1 / hhi * 10) / 10 : 0;
+
+      let recallReserve = 0;
+      if (mcs >= RULES.clientConcentration.recallReserveTrigger) {
+        recallReserve = Math.ceil(sortedClients[0][1] * RULES.clientConcentration.recallReservePct);
+      }
+      const clientCeiling = operationalAvailable - recallReserve;
+      constraints.push({
+        name: "客户集中度",
+        value: clientCeiling,
+        triggered: recallReserve > 0 || mcs >= RULES.clientConcentration.mcsLimit,
+        detail: { mcs, hhi, nEff, recallReserve, topClient: sortedClients[0]?.[0] || "-" }
+      });
+
+      // 单券集中度
+      const singleStockShare = platformTotal > 0 ? totalAuthQty / platformTotal : 0;
+      const posCeiling = singleStockShare > RULES.positionConcentration.singleStockLimit
+        ? Math.floor(totalAuthQty * RULES.positionConcentration.singleStockLimit / singleStockShare)
+        : operationalAvailable;
+      constraints.push({ name: "单券集中度", value: posCeiling, triggered: singleStockShare > RULES.positionConcentration.singleStockLimit, detail: { share: singleStockShare } });
+
+      // 流动性（默认通过）
+      const liqCeiling = Math.floor(operationalAvailable * RULES.liquidity.defaultFactor);
+      constraints.push({ name: "流动性", value: liqCeiling, triggered: false, detail: { factor: RULES.liquidity.defaultFactor } });
+
+      // 市场压力（默认 normal）
+      const stressDiscount = RULES.marketStress.normal.discount;
+      const stressCeiling = Math.floor(operationalAvailable * stressDiscount);
+      constraints.push({ name: "市场压力", value: stressCeiling, triggered: false, detail: { level: "normal", discount: stressDiscount } });
+
+      // 取最严约束
+      const minConstraint = constraints.reduce((min, c) => c.value < min.value ? c : min, constraints[0]);
+      const riskAdjustedLendable = minConstraint.value;
+
+      // L4: firm available (conservative floor)
+      const firmAvailable = Math.floor(riskAdjustedLendable * 0.95);
+
+      // 风险等级
+      const ratio = operationalAvailable > 0 ? riskAdjustedLendable / operationalAvailable : 0;
+      const riskLevel = ratio >= 0.7 ? "normal" : ratio >= 0.4 ? "warning" : "restricted";
+
+      // 主要瓶颈
+      const bottlenecks = constraints.filter(c => c.triggered).map(c => c.name);
+      const primaryBottleneck = bottlenecks.length > 0 ? bottlenecks.join("、") : "无显著约束";
+
+      return {
+        stockCode, stockName, brokerCode,
+        grossPosition, eligibleInventory, operationalAvailable, riskAdjustedLendable, firmAvailable,
+        breakdown: {
+          unauthorizedDeduction, onLoanDeduction, pendingSellDeduction, recallIssuedDeduction, reservedDeduction, corpActionLockDeduction,
+          clientConcentration: { mcs, hhi, nEff, recallReserve, limitApplied: clientCeiling, triggered: recallReserve > 0 || mcs >= RULES.clientConcentration.mcsLimit },
+          positionConcentration: { singleStockShare, limitApplied: posCeiling, triggered: singleStockShare > RULES.positionConcentration.singleStockLimit },
+          marketStress: { stressFlag: "normal", discountFactor: stressDiscount, triggered: false },
+          haircutInfo: { category: "other", fsbFloor: RULES.haircut.other, requiredCollateralMultiplier: 1 / (1 - RULES.haircut.other), note: "FSB 最低 haircut 10%（非主要指数成分股）" }
+        },
+        primaryBottleneck, riskLevel, constraints,
+        calculatedAt: new Date().toISOString(),
+        ruleVersion: RULES.ruleVersion
+      };
+    }
+
+    function makeZeroResult(code, name, broker, gross, eligible, unauth, onLoan, pendingSell, recall, reserved, corpLock) {
+      return {
+        stockCode: code, stockName: name, brokerCode: broker,
+        grossPosition: gross, eligibleInventory: eligible, operationalAvailable: 0, riskAdjustedLendable: 0, firmAvailable: 0,
+        breakdown: { unauthorizedDeduction: unauth, onLoanDeduction: onLoan, pendingSellDeduction: pendingSell, recallIssuedDeduction: recall, reservedDeduction: reserved, corpActionLockDeduction: corpLock,
+          clientConcentration: { mcs: 0, hhi: 0, nEff: 0, recallReserve: 0, limitApplied: 0, triggered: false },
+          positionConcentration: { singleStockShare: 0, limitApplied: 0, triggered: false },
+          marketStress: { stressFlag: "normal", discountFactor: 1.0, triggered: false },
+          haircutInfo: { category: "other", fsbFloor: 0.10, requiredCollateralMultiplier: 1.11, note: "" }
+        },
+        primaryBottleneck: "授权持仓不足或全部已占用", riskLevel: "restricted", constraints: [],
+        calculatedAt: new Date().toISOString(), ruleVersion: RULES.ruleVersion
+      };
+    }
+
+    // 批量计算
+    function calculateAllLendable(positions) {
+      const grouped = {};
+      positions.forEach(p => {
+        const key = p.stockCode;
+        if (!grouped[key]) grouped[key] = { positions: [], name: p.stockName, broker: p.brokerCode };
+        grouped[key].positions.push(p);
+        if (p.stockName) grouped[key].name = p.stockName;
+      });
+      const totalPlatform = Object.values(grouped).reduce((s, g) => s + g.positions.reduce((s2, p) => s2 + p.quantity, 0), 0);
+      return Object.entries(grouped).map(([code, g]) =>
+        calculateLendable(g.positions, code, g.name, g.broker, totalPlatform)
+      );
+    }
+
+    // 生成示例 CSV
+    function generateSampleCsv() {
+      return `证券代码,证券名称,持仓数量,客户标识,授权借出,账户类型,已借出
+00700.HK,腾讯控股,800000,C001,是,cash,50000
+00700.HK,腾讯控股,600000,C002,是,cash,30000
+00700.HK,腾讯控股,400000,C003,是,cash,0
+00700.HK,腾讯控股,200000,C004,是,cash,10000
+00700.HK,腾讯控股,100000,C005,否,cash,0
+09988.HK,阿里巴巴-W,1200000,C001,是,cash,80000
+09988.HK,阿里巴巴-W,900000,C006,是,cash,0
+09988.HK,阿里巴巴-W,500000,C002,是,cash,20000
+03690.HK,美团-W,300000,C001,是,cash,0
+03690.HK,美团-W,280000,C007,是,cash,0
+9988.HK,阿里巴巴-W,150000,C003,是,margin,0
+01024.HK,快手-W,200000,C001,是,cash,0
+01024.HK,快手-W,180000,C005,是,cash,0
+0005.HK,汇丰控股,500000,C008,是,cash,0
+0005.HK,汇丰控股,400000,C001,是,cash,0
+0005.HK,汇丰控股,300000,C009,否,cash,0
+3888.HK,金山软件,100000,C001,是,cash,0
+3888.HK,金山软件,90000,C010,是,cash,0
+2318.HK,中国平安,600000,C001,是,cash,0
+2318.HK,中国平安,400000,C006,是,cash,0
+2318.HK,中国平安,350000,C011,是,cash,0
+2318.HK,中国平安,200000,C012,是,cash,0`;
+    }
+
+    // 处理文件上传
+    function handleFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const text = evt.target.result;
+        const { positions, errors } = parseCsv(text);
+        if (positions.length === 0) {
+          toast("解析失败：" + (errors[0] || "无有效数据"));
+          return;
+        }
+        uploadedPositions = positions;
+        lendableResults = calculateAllLendable(positions);
+        toast(`解析成功：${positions.length} 行持仓，${lendableResults.length} 只证券`);
+        // 自动跳转到计算结果
+        document.querySelectorAll(".nav-item").forEach(item => {
+          if (item.dataset.page === "calc") item.click();
+        });
+      };
+      reader.readAsText(file);
+    }
+
+    // 使用演示数据
+    function useDemoData() {
+      const csv = generateSampleCsv();
+      const { positions, errors } = parseCsv(csv);
+      uploadedPositions = positions;
+      lendableResults = calculateAllLendable(positions);
+      toast(`已加载演示数据：${positions.length} 行，${lendableResults.length} 只证券`);
+      document.querySelectorAll(".nav-item").forEach(item => {
+        if (item.dataset.page === "calc") item.click();
+      });
+    }
+
+    // 展示单只证券明细
+    function showDetail(stockCode) {
+      const r = lendableResults.find(x => x.stockCode === stockCode);
+      if (!r) { toast("未找到该证券的计算结果"); return; }
+      const panel = document.getElementById("detailPanel");
+      if (!panel) return;
+      const b = r.breakdown;
+      const funnelPct = (v) => r.grossPosition > 0 ? (v / r.grossPosition * 100).toFixed(1) : "0.0";
+      const pctBar = (v, color) => {
+        const p = r.grossPosition > 0 ? Math.min(100, v / r.grossPosition * 100) : 0;
+        return `<div style="display:flex;align-items:center;gap:8px;"><span style="font-weight:800;min-width:90px;">${v.toLocaleString()}</span><div style="flex:1;height:10px;background:#e5eaf2;border-radius:99px;overflow:hidden;"><div style="height:100%;width:${p}%;background:${color};border-radius:inherit;"></div></div><span style="font-size:12px;color:var(--muted);">${funnelPct(v)}%</span></div>`;
+      };
+      const riskTag = r.riskLevel === "normal" ? tag("正常","green") : r.riskLevel === "warning" ? tag("预警","orange") : tag("受限","red");
+
+      panel.style.display = "block";
+      panel.innerHTML = `
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">${r.stockName} (${r.stockCode}) — 可借计算明细</div>
+              <div class="card-sub">规则版本 ${r.ruleVersion} · 计算时间 ${new Date(r.calculatedAt).toLocaleString("zh-CN")}</div>
+            </div>
+            <div style="display:flex;gap:8px;">${riskTag}<button class="btn btn-outline" onclick="document.getElementById('detailPanel').style.display='none'">收起</button></div>
+          </div>
+          <div class="card-body">
+            <div style="margin-bottom:16px;">
+              <div style="font-weight:900;margin-bottom:10px;font-size:15px;">📊 四层漏斗</div>
+              <div style="display:grid;gap:8px;max-width:700px;">
+                <div><span style="color:var(--muted);display:inline-block;width:120px;">L0 总持仓</span>${pctBar(r.grossPosition, "#1f5eff")}</div>
+                <div><span style="color:var(--muted);display:inline-block;width:120px;">L1 有效库存</span>${pctBar(r.eligibleInventory, "#22c1dc")}
+                  <span style="font-size:11px;color:var(--red);margin-left:8px;">- 未授权 ${b.unauthorizedDeduction.toLocaleString()}</span></div>
+                <div><span style="color:var(--muted);display:inline-block;width:120px;">L2 操作可用</span>${pctBar(r.operationalAvailable, "#7c3aed")}
+                  <span style="font-size:11px;color:var(--red);margin-left:8px;">- 已借出 ${b.onLoanDeduction.toLocaleString()} - 待卖出 ${b.pendingSellDeduction.toLocaleString()}</span></div>
+                <div><span style="color:var(--muted);display:inline-block;width:120px;">L3 风险调整</span>${pctBar(r.riskAdjustedLendable, "#16a34a")}</div>
+                <div><span style="color:var(--muted);display:inline-block;width:120px;">L4 可执行</span>${pctBar(r.firmAvailable, "#f59e0b")}
+                  <span style="font-size:11px;color:var(--muted);margin-left:8px;">× 0.95 保守系数</span></div>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+              <div style="border:1px solid var(--line);border-radius:12px;padding:14px;">
+                <div style="font-weight:900;margin-bottom:10px;">👥 客户分散度</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;">
+                  <div><span style="color:var(--muted);">MCS 最大客户占比</span><div style="font-weight:900;font-size:16px;">${(b.clientConcentration.mcs * 100).toFixed(1)}%</div></div>
+                  <div><span style="color:var(--muted);">HHI 赫芬达尔指数</span><div style="font-weight:900;font-size:16px;">${(b.clientConcentration.hhi * 10000).toFixed(0)}</div></div>
+                  <div><span style="color:var(--muted);">有效客户数 N_eff</span><div style="font-weight:900;font-size:16px;">${b.clientConcentration.nEff}</div></div>
+                  <div><span style="color:var(--muted);">召回储备量</span><div style="font-weight:900;font-size:16px;color:${b.clientConcentration.recallReserve > 0 ? 'var(--orange)' : 'var(--green)'};">${b.clientConcentration.recallReserve.toLocaleString()}</div></div>
+                </div>
+                ${b.clientConcentration.triggered ? `<div style="margin-top:8px;padding:6px 10px;background:var(--softOrange);border-radius:8px;font-size:12px;color:#b45309;">⚠ 已触发约束</div>` : `<div style="margin-top:8px;padding:6px 10px;background:var(--softGreen);border-radius:8px;font-size:12px;color:var(--green);">✓ 未触发</div>`}
+              </div>
+              <div style="border:1px solid var(--line);border-radius:12px;padding:14px;">
+                <div style="font-weight:900;margin-bottom:10px;">📐 集中度与市场</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;">
+                  <div><span style="color:var(--muted);">单券占平台比</span><div style="font-weight:900;font-size:16px;">${(b.positionConcentration.singleStockShare * 100).toFixed(2)}%</div></div>
+                  <div><span style="color:var(--muted);">市场压力等级</span><div style="font-weight:900;font-size:16px;">${b.marketStress.stressFlag.toUpperCase()}</div></div>
+                  <div><span style="color:var(--muted);">压力折扣因子</span><div style="font-weight:900;font-size:16px;">${b.marketStress.discountFactor.toFixed(2)}</div></div>
+                  <div><span style="color:var(--muted);">主要瓶颈</span><div style="font-weight:900;font-size:13px;color:${r.primaryBottleneck === "无显著约束" ? "var(--green)" : "var(--orange)"};">${r.primaryBottleneck}</div></div>
+                </div>
+              </div>
+              <div style="border:1px solid var(--line);border-radius:12px;padding:14px;">
+                <div style="font-weight:900;margin-bottom:10px;">🏦 FSB Haircut 参考</div>
+                <div style="font-size:13px;">
+                  <div><span style="color:var(--muted);">分类</span><div style="font-weight:900;">${b.haircutInfo.category === "main_index" ? "主要指数成分股" : "其他股票"}</div></div>
+                  <div style="margin-top:6px;"><span style="color:var(--muted);">FSB 最低 haircut</span><div style="font-weight:900;font-size:18px;">${(b.haircutInfo.fsbFloor * 100).toFixed(0)}%</div></div>
+                  <div style="margin-top:6px;"><span style="color:var(--muted);">抵押品乘数</span><div style="font-weight:900;">${b.haircutInfo.requiredCollateralMultiplier.toFixed(3)}x</div></div>
+                  <div style="margin-top:8px;padding:6px 10px;background:#f0f4f8;border-radius:8px;font-size:11px;color:var(--muted);">${b.haircutInfo.note}</div>
+                </div>
+              </div>
+              <div style="border:1px solid var(--line);border-radius:12px;padding:14px;">
+                <div style="font-weight:900;margin-bottom:10px;">📋 库存状态扣减明细</div>
+                <div style="display:grid;gap:4px;font-size:13px;">
+                  <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">未授权扣减</span><span style="font-weight:900;color:var(--red);">-${b.unauthorizedDeduction.toLocaleString()}</span></div>
+                  <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">已借出</span><span style="font-weight:900;color:var(--red);">-${b.onLoanDeduction.toLocaleString()}</span></div>
+                  <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">待卖出</span><span style="font-weight:900;color:var(--red);">-${b.pendingSellDeduction.toLocaleString()}</span></div>
+                  <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">已召回</span><span style="font-weight:900;">-${b.recallIssuedDeduction.toLocaleString()}</span></div>
+                  <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">已预留</span><span style="font-weight:900;">-${b.reservedDeduction.toLocaleString()}</span></div>
+                  <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">公司行动锁定</span><span style="font-weight:900;">-${b.corpActionLockDeduction.toLocaleString()}</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      panel.scrollIntoView({ behavior: "smooth" });
+    }
+
+    // 下载示例 CSV
+    function downloadSampleCsv() {
+      const csv = generateSampleCsv();
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "sbl_holdings_sample.csv"; a.click();
+      URL.revokeObjectURL(url);
+      toast("示例 CSV 已下载");
     }
 
     renderRole("broker");
