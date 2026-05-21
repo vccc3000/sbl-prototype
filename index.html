@@ -2227,20 +2227,15 @@
       const minConstraint = constraints.reduce((min, c) => c.value < min.value ? c : min, constraints[0]);
       const riskAdjustedLendable = minConstraint.value;
 
-      // L3.5: 整手取整（向下取整到整手数）
+      // L4: firm available = 风险值 × 0.95，再向下取整至整手数
       const boardLot = getBoardLot(stockCode) || 1;
-      const riskAdjustedLendableInLots = boardLot > 0
-        ? Math.floor(riskAdjustedLendable / boardLot) * boardLot
-        : riskAdjustedLendable;
-
-      // L4: firm available (conservative floor, 同样整手取整)
-      const firmAvailableRaw = Math.floor(riskAdjustedLendableInLots * 0.95);
+      const firmAvailableRaw = Math.floor(riskAdjustedLendable * 0.95);
       const firmAvailable = boardLot > 1
         ? Math.floor(firmAvailableRaw / boardLot) * boardLot
         : firmAvailableRaw;
 
-      // 风险等级（基于取整后的可借量）
-      const ratio = operationalAvailable > 0 ? riskAdjustedLendableInLots / operationalAvailable : 0;
+      // 风险等级
+      const ratio = operationalAvailable > 0 ? riskAdjustedLendable / operationalAvailable : 0;
       const riskLevel = ratio >= 0.7 ? "normal" : ratio >= 0.4 ? "warning" : "restricted";
 
       // 主要瓶颈
@@ -2250,8 +2245,8 @@
       return {
         stockCode, stockName, brokerCode,
         grossPosition, eligibleInventory, operationalAvailable,
-        riskAdjustedLendable: riskAdjustedLendableInLots,  // 整手取整后
-        firmAvailable,
+        riskAdjustedLendable,      // L3: 纯风险值，不取整
+        firmAvailable,             // L4: 取整后
         breakdown: {
           unauthorizedDeduction, onLoanDeduction, pendingSellDeduction, recallIssuedDeduction, reservedDeduction, corpActionLockDeduction,
           clientConcentration: { mcs, hhi, nEff, recallReserve, limitApplied: clientCeiling, triggered: recallReserve > 0 || mcs >= RULES.clientConcentration.mcsLimit },
@@ -2394,10 +2389,10 @@
                   <span style="font-size:11px;color:var(--red);margin-left:8px;">- 未授权 ${b.unauthorizedDeduction.toLocaleString()}</span></div>
                 <div><span style="color:var(--muted);display:inline-block;width:120px;">L2 操作可用</span>${pctBar(r.operationalAvailable, "#7c3aed")}
                   <span style="font-size:11px;color:var(--green);margin-left:8px;">上传数据默认全部可借</span></div>
-                <div><span style="color:var(--muted);display:inline-block;width:120px;">L3 风险调整</span>${pctBar(r.riskAdjustedLendable, "#16a34a")}
-                  ${r.boardLot > 1 ? `<span style="font-size:11px;color:var(--blue);margin-left:8px;">← 整手取整(每手${r.boardLot.toLocaleString()}股)</span>` : ''}</div>
+                <div><span style="color:var(--muted);display:inline-block;width:120px;">L3 风险调整</span>${pctBar(r.riskAdjustedLendable, "#16a34a")}</div>
                 <div><span style="color:var(--muted);display:inline-block;width:120px;">L4 可执行</span>${pctBar(r.firmAvailable, "#f59e0b")}
-                  <span style="font-size:11px;color:var(--muted);margin-left:8px;">× 0.95 保守系数 + 整手取整</span></div>
+                  ${r.boardLot > 1 ? `<span style="font-size:11px;color:var(--blue);margin-left:8px;">← 整手取整(每手${r.boardLot.toLocaleString()}股)</span>` : ''}
+                  <span style="font-size:11px;color:var(--muted);margin-left:8px;">× 0.95 保守系数</span></div>
               </div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
@@ -2427,7 +2422,7 @@
                   <div style="margin-top:6px;"><span style="color:var(--muted);">FSB 最低 haircut</span><div style="font-weight:900;font-size:18px;">${(b.haircutInfo.fsbFloor * 100).toFixed(0)}%</div></div>
                   <div style="margin-top:6px;"><span style="color:var(--muted);">抵押品乘数</span><div style="font-weight:900;">${b.haircutInfo.requiredCollateralMultiplier.toFixed(3)}x</div></div>
                   <div style="margin-top:8px;padding:6px 10px;background:#f0f4f8;border-radius:8px;font-size:11px;color:var(--muted);">${b.haircutInfo.note}</div>
-                  <div style="margin-top:8px;padding:6px 10px;background:var(--softBlue);border-radius:8px;font-size:12px;color:var(--blue);"><strong>每手买卖单位：${r.boardLot ? r.boardLot.toLocaleString() : "N/A"} 股</strong> — L3/L4 均已向下取整至整手数</div>
+                  <div style="margin-top:8px;padding:6px 10px;background:var(--softBlue);border-radius:8px;font-size:12px;color:var(--blue);"><strong>每手买卖单位：${r.boardLot ? r.boardLot.toLocaleString() : "N/A"} 股</strong> — L4 可执行数量已向下取整至整手</div>
                 </div>
               </div>
               <div style="border:1px solid var(--line);border-radius:12px;padding:14px;">
