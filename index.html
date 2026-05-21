@@ -982,7 +982,7 @@
                   <input type="file" id="csvFileInput" accept=".csv,.txt" style="display:none;" onchange="handleFileUpload(event)" />
                   <div class="upload-icon">↑</div>
                   <div style="font-weight:900;font-size:18px;margin-bottom:8px;">点击此处选择 CSV 文件</div>
-                  <div style="color:var(--muted);margin-bottom:16px;">支持字段：证券代码、证券名称、持仓数量、客户标识、授权借出、账户类型、已借出、待卖出、已预留</div>
+                  <div style="color:var(--muted);margin-bottom:16px;">支持字段：stock_code、stock_name、quantity、client_id、authorized、position_type</div>
                   <button class="btn btn-blue" onclick="event.stopPropagation(); document.getElementById('csvFileInput').click()">选择文件</button>
                   <button class="btn btn-outline" onclick="event.stopPropagation(); downloadSampleCsv()">下载示例 CSV</button>
                   <button class="btn btn-primary" style="margin-left:8px;" onclick="event.stopPropagation(); useDemoData()">使用演示数据体验</button>
@@ -2034,15 +2034,12 @@
 
     // CSV 列名映射
     const CSV_COLUMNS = {
-      stockCode: ["证券代码", "stockCode", "stock_code", "code", "证券编号"],
-      stockName: ["证券名称", "stockName", "stock_name", "name", "名称"],
-      quantity: ["持仓数量", "quantity", "qty", "数量", "股数", "持仓"],
-      clientId: ["客户标识", "clientId", "client_id", "客户", "账户", "client"],
-      authorized: ["授权借出", "authorized", "auth", "是否授权"],
-      positionType: ["账户类型", "positionType", "type", "类型"],
-      onLoan: ["已借出", "onLoan", "on_loan"],
-      pendingSell: ["待卖出", "pendingSell", "pending_sell"],
-      reserved: ["已预留", "reserved"]
+      stockCode: ["stock_code", "stockcode", "code", "证券代码", "stockCode"],
+      stockName: ["stock_name", "stockname", "name", "证券名称", "stockName"],
+      quantity: ["quantity", "qty", "持仓数量", "数量", "股数", "持仓"],
+      clientId: ["client_id", "clientid", "client", "客户标识", "客户", "账户", "clientId"],
+      authorized: ["authorized", "auth", "授权借出", "是否授权"],
+      positionType: ["position_type", "positiontype", "type", "账户类型", "positionType"]
     };
 
     // 解析 CSV 文本
@@ -2080,12 +2077,7 @@
             ? ["true","1","yes","是","授权"].includes((vals[colMap.authorized] || "").trim().toLowerCase())
             : true,
           positionType: (vals[colMap.positionType] || "cash").trim().replace(/"/g, ""),
-          brokerCode: "BRK001",
-          onLoanQuantity: parseInt(vals[colMap.onLoan]) || 0,
-          pendingSellQuantity: parseInt(vals[colMap.pendingSell]) || 0,
-          reservedQuantity: parseInt(vals[colMap.reserved]) || 0,
-          recallIssuedQuantity: 0,
-          corpActionLockQuantity: 0
+          brokerCode: "BRK001"
         };
         if (!pos.stockCode) {
           errors.push(`第 ${i + 1} 行：证券代码为空`);
@@ -2122,13 +2114,13 @@
       const unauthorizedDeduction = positions.filter(p => !p.authorized).reduce((s, p) => s + p.quantity, 0);
       const eligibleInventory = grossPosition - unauthorizedDeduction;
 
-      // L2: operational available (扣减库存状态)
-      const onLoanDeduction = authorized.reduce((s, p) => s + (p.onLoanQuantity || 0), 0);
-      const pendingSellDeduction = authorized.reduce((s, p) => s + (p.pendingSellQuantity || 0), 0);
-      const recallIssuedDeduction = authorized.reduce((s, p) => s + (p.recallIssuedQuantity || 0), 0);
-      const reservedDeduction = authorized.reduce((s, p) => s + (p.reservedQuantity || 0), 0);
-      const corpActionLockDeduction = authorized.reduce((s, p) => s + (p.corpActionLockQuantity || 0), 0);
-      const operationalAvailable = Math.max(0, eligibleInventory - onLoanDeduction - pendingSellDeduction - recallIssuedDeduction - reservedDeduction - corpActionLockDeduction);
+      // L2: operational available（默认上传数据均可借，不扣减已借出）
+      const pendingSellDeduction = 0;   // 上传数据默认无待卖出
+      const recallIssuedDeduction = 0; // 上传数据默认无召回
+      const reservedDeduction = 0;     // 上传数据默认无预留
+      const corpActionLockDeduction = 0;
+      const onLoanDeduction = 0;       // 上传数据默认均可借，不扣减已借出
+      const operationalAvailable = eligibleInventory;  // 上传文件中数量均为可借
 
       if (operationalAvailable <= 0) {
         return makeZeroResult(stockCode, stockName, brokerCode, grossPosition, eligibleInventory, unauthorizedDeduction,
@@ -2240,29 +2232,29 @@
 
     // 生成示例 CSV
     function generateSampleCsv() {
-      return `证券代码,证券名称,持仓数量,客户标识,授权借出,账户类型,已借出
-00700.HK,腾讯控股,800000,C001,是,cash,50000
-00700.HK,腾讯控股,600000,C002,是,cash,30000
-00700.HK,腾讯控股,400000,C003,是,cash,0
-00700.HK,腾讯控股,200000,C004,是,cash,10000
-00700.HK,腾讯控股,100000,C005,否,cash,0
-09988.HK,阿里巴巴-W,1200000,C001,是,cash,80000
-09988.HK,阿里巴巴-W,900000,C006,是,cash,0
-09988.HK,阿里巴巴-W,500000,C002,是,cash,20000
-03690.HK,美团-W,300000,C001,是,cash,0
-03690.HK,美团-W,280000,C007,是,cash,0
-9988.HK,阿里巴巴-W,150000,C003,是,margin,0
-01024.HK,快手-W,200000,C001,是,cash,0
-01024.HK,快手-W,180000,C005,是,cash,0
-0005.HK,汇丰控股,500000,C008,是,cash,0
-0005.HK,汇丰控股,400000,C001,是,cash,0
-0005.HK,汇丰控股,300000,C009,否,cash,0
-3888.HK,金山软件,100000,C001,是,cash,0
-3888.HK,金山软件,90000,C010,是,cash,0
-2318.HK,中国平安,600000,C001,是,cash,0
-2318.HK,中国平安,400000,C006,是,cash,0
-2318.HK,中国平安,350000,C011,是,cash,0
-2318.HK,中国平安,200000,C012,是,cash,0`;
+      return `stock_code,stock_name,quantity,client_id,authorized,position_type
+00700.HK,Tencent,800000,C001,true,cash
+00700.HK,Tencent,600000,C002,true,cash
+00700.HK,Tencent,400000,C003,true,cash
+00700.HK,Tencent,200000,C004,true,cash
+00700.HK,Tencent,100000,C005,false,cash
+09988.HK,Alibaba-W,1200000,C001,true,cash
+09988.HK,Alibaba-W,900000,C006,true,cash
+09988.HK,Alibaba-W,500000,C002,true,cash
+03690.HK,Meituan-W,300000,C001,true,cash
+03690.HK,Meituan-W,280000,C007,true,cash
+9988.HK,Alibaba-W,150000,C003,true,margin
+01024.HK,Kuaishou-W,200000,C001,true,cash
+01024.HK,Kuaishou-W,180000,C005,true,cash
+0005.HK,HSBC,500000,C008,true,cash
+0005.HK,HSBC,400000,C001,true,cash
+0005.HK,HSBC,300000,C009,false,cash
+3888.HK,Kingsoft,100000,C001,true,cash
+3888.HK,Kingsoft,90000,C010,true,cash
+2318.HK,PingAn,600000,C001,true,cash
+2318.HK,PingAn,400000,C006,true,cash
+2318.HK,PingAn,350000,C011,true,cash
+2318.HK,PingAn,200000,C012,true,cash`;
     }
 
     // 处理文件上传
@@ -2332,7 +2324,7 @@
                 <div><span style="color:var(--muted);display:inline-block;width:120px;">L1 有效库存</span>${pctBar(r.eligibleInventory, "#22c1dc")}
                   <span style="font-size:11px;color:var(--red);margin-left:8px;">- 未授权 ${b.unauthorizedDeduction.toLocaleString()}</span></div>
                 <div><span style="color:var(--muted);display:inline-block;width:120px;">L2 操作可用</span>${pctBar(r.operationalAvailable, "#7c3aed")}
-                  <span style="font-size:11px;color:var(--red);margin-left:8px;">- 已借出 ${b.onLoanDeduction.toLocaleString()} - 待卖出 ${b.pendingSellDeduction.toLocaleString()}</span></div>
+                  <span style="font-size:11px;color:var(--green);margin-left:8px;">上传数据默认全部可借</span></div>
                 <div><span style="color:var(--muted);display:inline-block;width:120px;">L3 风险调整</span>${pctBar(r.riskAdjustedLendable, "#16a34a")}</div>
                 <div><span style="color:var(--muted);display:inline-block;width:120px;">L4 可执行</span>${pctBar(r.firmAvailable, "#f59e0b")}
                   <span style="font-size:11px;color:var(--muted);margin-left:8px;">× 0.95 保守系数</span></div>
@@ -2368,14 +2360,12 @@
                 </div>
               </div>
               <div style="border:1px solid var(--line);border-radius:12px;padding:14px;">
-                <div style="font-weight:900;margin-bottom:10px;">📋 库存状态扣减明细</div>
+                <div style="font-weight:900;margin-bottom:10px;">📋 扣减明细</div>
                 <div style="display:grid;gap:4px;font-size:13px;">
                   <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">未授权扣减</span><span style="font-weight:900;color:var(--red);">-${b.unauthorizedDeduction.toLocaleString()}</span></div>
-                  <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">已借出</span><span style="font-weight:900;color:var(--red);">-${b.onLoanDeduction.toLocaleString()}</span></div>
-                  <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">待卖出</span><span style="font-weight:900;color:var(--red);">-${b.pendingSellDeduction.toLocaleString()}</span></div>
-                  <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">已召回</span><span style="font-weight:900;">-${b.recallIssuedDeduction.toLocaleString()}</span></div>
-                  <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">已预留</span><span style="font-weight:900;">-${b.reservedDeduction.toLocaleString()}</span></div>
-                  <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">公司行动锁定</span><span style="font-weight:900;">-${b.corpActionLockDeduction.toLocaleString()}</span></div>
+                  <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">客户集中度约束</span><span style="font-weight:900;color:${b.clientConcentration.triggered ? 'var(--orange)' : 'var(--green)'};">${b.clientConcentration.triggered ? b.clientConcentration.limitApplied.toLocaleString() : '未触发'}</span></div>
+                  <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">单券集中度约束</span><span style="font-weight:900;color:${b.positionConcentration.triggered ? 'var(--orange)' : 'var(--green)'};">${b.positionConcentration.triggered ? b.positionConcentration.limitApplied.toLocaleString() : '未触发'}</span></div>
+                  <div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">市场压力折扣</span><span style="font-weight:900;">×${b.marketStress.discountFactor.toFixed(2)}</span></div>
                 </div>
               </div>
             </div>
